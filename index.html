@@ -72,6 +72,20 @@
         
         .schedule-item { border-right: 4px solid var(--purple); background: #f5f3ff; }
         .schedule-time { font-weight: bold; color: var(--purple); font-size: 14px; }
+
+        /* Styles for Print/PDF Generation */
+        #print-section { display: none; }
+        @media print {
+            body * { visibility: hidden; }
+            #print-section, #print-section * { visibility: visible; }
+            #print-section { position: absolute; left: 0; top: 0; width: 100%; display: block !important; padding: 20px; direction: rtl; font-family: Tahoma; }
+            .print-header { text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin-bottom: 20px; }
+            .print-header h2 { color: #4f46e5; margin: 0; }
+            .print-item { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+            .print-item h4 { margin: 0 0 5px 0; color: #333; }
+            .print-item p { margin: 3px 0; font-size: 14px; color: #555; }
+            .print-label { font-weight: bold; color: #000; }
+        }
     </style>
 </head>
 <body>
@@ -97,13 +111,14 @@
                     <div class="form-group"><label>ساعت</label><input type="time" id="app-time"></div>
                 </div>
                 <div class="form-group"><label>نام مراجع</label><input type="text" id="app-client" placeholder="مثلاً: علی رضایی"></div>
+                <div class="form-group"><label>شماره جلسه (جلسه چندم)</label><input type="number" id="app-session-num" placeholder="مثلاً: 1"></div>
                 <div class="form-group"><label>موضوع جلسه / نکته برای مشاور</label><textarea id="app-note" rows="2" placeholder="مثلاً: تمرکز روی اضطراب جدایی"></textarea></div>
                 <button class="btn btn-purple" onclick="addAppointment()">ثبت نوبت</button>
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin: 16px 0 8px;">
                 <h3 style="font-size: 14px; color: var(--text-muted);">نوبت‌های ثبت‌شده:</h3>
-                <button class="btn" style="width:auto; padding:6px 12px; font-size:12px; margin:0;" onclick="shareDailySchedule()">📤 ارسال کل برنامه به مشاور</button>
+                <button class="btn" style="width:auto; padding:6px 12px; font-size:12px; margin:0;" onclick="shareDailySchedule()">📄 ارسال برنامه (PDF)</button>
             </div>
             <div id="schedule-list"></div>
         </div>
@@ -143,6 +158,15 @@
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
             <span>روزانه</span>
         </div>
+    </div>
+
+    <!-- HIDDEN PRINT SECTION FOR PDF GENERATION -->
+    <div id="print-section">
+        <div class="print-header">
+            <h2>گزارش سیستم مدیریت مرکز مشاوره</h2>
+            <p id="print-date"></p>
+        </div>
+        <div id="print-content"></div>
     </div>
 
     <!-- MODAL: ADD/EDIT CLIENT (Full Form) -->
@@ -263,6 +287,14 @@
         let dailyNotes = JSON.parse(localStorage.getItem('crm_daily_notes')) || [];
         let appointments = JSON.parse(localStorage.getItem('crm_appointments')) || [];
 
+        // Helper: Convert Gregorian to Persian (Jalali) Date
+        function toJalali(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr; // Return original if invalid
+            return d.toLocaleDateString('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        }
+
         function saveData() {
             localStorage.setItem('crm_clients', JSON.stringify(clients));
             localStorage.setItem('crm_sessions', JSON.stringify(sessions));
@@ -285,20 +317,37 @@
         function openModal(id) { document.getElementById(id).classList.add('active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
+        // --- PRINT / PDF LOGIC ---
+        function printDocument(title, htmlContent) {
+            // Fill the hidden print section
+            document.getElementById('print-date').innerText = 'تاریخ چاپ: ' + toJalali(new Date().toISOString().split('T')[0]);
+            document.getElementById('print-content').innerHTML = `<h3>${title}</h3>${htmlContent}`;
+            
+            // Trigger browser print dialog
+            window.print();
+            
+            // Clear after printing (optional, but good practice)
+            setTimeout(() => {
+                document.getElementById('print-content').innerHTML = '';
+            }, 1000);
+        }
+
         // --- SCHEDULE LOGIC ---
         function addAppointment() {
             const date = document.getElementById('app-date').value;
             const time = document.getElementById('app-time').value;
             const client = document.getElementById('app-client').value;
+            const sessionNum = document.getElementById('app-session-num').value;
             const note = document.getElementById('app-note').value;
 
             if(!date || !time || !client) return alert('لطفاً تاریخ، ساعت و نام مراجع را وارد کنید.');
 
-            const app = { id: Date.now().toString(), date, time, client, note };
+            const app = { id: Date.now().toString(), date, time, client, sessionNum, note };
             appointments.push(app);
             saveData();
             
             document.getElementById('app-client').value = '';
+            document.getElementById('app-session-num').value = '';
             document.getElementById('app-note').value = '';
             
             renderSchedule();
@@ -318,9 +367,9 @@
                 <div class="card list-item schedule-item">
                     <div style="display:flex; justify-content:space-between;">
                         <span class="schedule-time">⏰ ${a.time}</span>
-                        <span style="font-size:12px; color:#64748b;">${a.date}</span>
+                        <span style="font-size:12px; color:#64748b;">${toJalali(a.date)}</span>
                     </div>
-                    <h4 style="margin-top:4px;">👤 ${a.client}</h4>
+                    <h4 style="margin-top:4px;">👤 ${a.client} <span style="font-size:12px; color:var(--purple);">(جلسه ${a.sessionNum || '-'})</span></h4>
                     <p style="font-size:12px; margin-top:4px; color:#4c1d95;">📝 ${a.note || 'بدون توضیح'}</p>
                     <div class="action-row">
                         <button class="action-btn btn-delete" onclick="deleteAppointment('${a.id}')">🗑️ حذف نوبت</button>
@@ -340,7 +389,8 @@
         function shareDailySchedule() {
             if (appointments.length === 0) return alert('هیچ نوبتی برای ارسال وجود ندارد.');
             
-            let text = `📅 *برنامه نوبت‌های مراجعین*\n\n`;
+            let html = `<p style="margin-bottom:15px; font-weight:bold;">برنامه نوبت‌های مراجعین:</p>`;
+            
             const grouped = {};
             appointments.forEach(a => {
                 if(!grouped[a.date]) grouped[a.date] = [];
@@ -348,16 +398,16 @@
             });
 
             Object.keys(grouped).sort().forEach(date => {
-                text += `🔹 *تاریخ: ${date}*\n`;
+                html += `<div class="print-item">`;
+                html += `<h4>تاریخ: ${toJalali(date)}</h4>`;
                 grouped[date].sort((a,b) => a.time.localeCompare(b.time)).forEach(a => {
-                    text += `   ⏰ ${a.time} - ${a.client}\n`;
-                    text += `   📝 نکته: ${a.note || '-'}\n`;
+                    html += `<p><span class="print-label">⏰ ${a.time}</span> - ${a.client} (جلسه ${a.sessionNum || '-'})</p>`;
+                    html += `<p style="font-size:12px; color:#666; margin-right:20px;">📝 ${a.note || '-'}</p>`;
                 });
-                text += `\n`;
+                html += `</div>`;
             });
 
-            text += `(ارسال شده از پنل مدیریت مشاوره)`;
-            shareText(text);
+            printDocument('گزارش نوبت‌های روزانه', html);
         }
 
         // --- CLIENTS LOGIC ---
@@ -414,7 +464,7 @@
                     <div class="action-row">
                         <button class="action-btn btn-view" onclick="viewClient('${c.id}')">👁️ مشاهده</button>
                         <button class="action-btn btn-edit" onclick="editClient('${c.id}')">✏️ ویرایش</button>
-                        <button class="action-btn btn-share" onclick="shareClient('${c.id}')">📤 ارسال به مشاور</button>
+                        <button class="action-btn btn-share" onclick="shareClient('${c.id}')">📄 ارسال (PDF)</button>
                         <button class="action-btn btn-delete" onclick="deleteClient('${c.id}')">🗑️ حذف</button>
                     </div>
                     <button class="btn btn-success" style="margin-top:8px; font-size:12px; padding:8px;" onclick="openSessionModal('${c.id}')">+ ثبت جلسه جدید</button>
@@ -425,7 +475,7 @@
         function viewClient(id) {
             const c = clients.find(x => x.id === id);
             if(!c) return;
-            alert(`📋 پرونده: ${c.name}\n\nشماره پرونده: ${c.fileNum || '-'}\nتاریخ اولین مراجعه: ${c.firstVisit || '-'}\nنام معرف: ${c.referral || '-'}\n\nسن: ${c.age || '-'}\nشغل: ${c.job || '-'}\nتحصیلات: ${c.education || '-'}\nوضعیت تاهل: ${c.marital}\nمدت تاهل: ${c.marriageDuration || '-'}\nفرزندان: ${c.children || '-'}\nترتیب تولد: ${c.birthOrder || '-'}\nنحوه آشنایی: ${c.acquaintance || '-'}\n\nوضعیت والدین: ${c.parents || '-'}\nسابقه اعتیاد/سیگار: ${c.addiction || '-'}\nسابقه روانی: ${c.psychHistory || '-'}\nسابقه جسمی: ${c.physicalHistory || '-'}\n\nاطلاعات همسر:\nنام: ${c.spouseName || '-'}\nسن: ${c.spouseAge || '-'}\nشغل: ${c.spouseJob || '-'}\nاعتیاد: ${c.spouseAddiction || '-'}\n\nمشکل اصلی: ${c.mainProblem || '-'}\nمدت مشکل: ${c.problemDuration || '-'}\nرفتار آسیب‌زننده: ${c.selfHarm || '-'}\nتشخیص مشاور: ${c.diagnosis || '-'}`);
+            alert(`📋 پرونده: ${c.name}\n\nشماره پرونده: ${c.fileNum || '-'}\nتاریخ اولین مراجعه: ${toJalali(c.firstVisit)}\nنام معرف: ${c.referral || '-'}\n\nسن: ${c.age || '-'}\nشغل: ${c.job || '-'}\nتحصیلات: ${c.education || '-'}\nوضعیت تاهل: ${c.marital}\nمدت تاهل: ${c.marriageDuration || '-'}\nفرزندان: ${c.children || '-'}\nترتیب تولد: ${c.birthOrder || '-'}\nنحوه آشنایی: ${c.acquaintance || '-'}\n\nوضعیت والدین: ${c.parents || '-'}\nسابقه اعتیاد/سیگار: ${c.addiction || '-'}\nسابقه روانی: ${c.psychHistory || '-'}\nسابقه جسمی: ${c.physicalHistory || '-'}\n\nاطلاعات همسر:\nنام: ${c.spouseName || '-'}\nسن: ${c.spouseAge || '-'}\nشغل: ${c.spouseJob || '-'}\nاعتیاد: ${c.spouseAddiction || '-'}\n\nمشکل اصلی: ${c.mainProblem || '-'}\nمدت مشکل: ${c.problemDuration || '-'}\nرفتار آسیب‌زننده: ${c.selfHarm || '-'}\nتشخیص مشاور: ${c.diagnosis || '-'}`);
         }
 
         function editClient(id) {
@@ -471,8 +521,22 @@
         function shareClient(id) {
             const c = clients.find(x => x.id === id);
             if(!c) return;
-            const text = `📋 *پرونده مراجع: ${c.name}*\n\n🔹 شماره پرونده: ${c.fileNum || '-'}\n🔹 سن: ${c.age || '-'}\n🔹 شغل: ${c.job || '-'}\n🔹 وضعیت تاهل: ${c.marital}\n🔹 نحوه آشنایی: ${c.acquaintance || '-'}\n\n📝 *مشکل اصلی:* ${c.mainProblem || '-'}\n📝 *سابقه روانی:* ${c.psychHistory || '-'}\n📝 *سابقه جسمی:* ${c.physicalHistory || '-'}\n📝 *وضعیت والدین:* ${c.parents || '-'}\n\n🩺 *تشخیص مشاور:* ${c.diagnosis || 'ثبت نشده'}`;
-            shareText(text);
+            
+            let html = `
+                <div class="print-item"><p><span class="print-label">نام مراجع:</span> ${c.name}</p></div>
+                <div class="print-item"><p><span class="print-label">شماره پرونده:</span> ${c.fileNum || '-'}</p></div>
+                <div class="print-item"><p><span class="print-label">تاریخ اولین مراجعه:</span> ${toJalali(c.firstVisit)}</p></div>
+                <div class="print-item"><p><span class="print-label">نام معرف:</span> ${c.referral || '-'}</p></div>
+                <div class="print-item"><p><span class="print-label">سن:</span> ${c.age || '-'} | <span class="print-label">شغل:</span> ${c.job || '-'} | <span class="print-label">تحصیلات:</span> ${c.education || '-'}</p></div>
+                <div class="print-item"><p><span class="print-label">وضعیت تاهل:</span> ${c.marital} | <span class="print-label">مدت تاهل:</span> ${c.marriageDuration || '-'} | <span class="print-label">فرزندان:</span> ${c.children || '-'}</p></div>
+                <div class="print-item"><p><span class="print-label">نحوه آشنایی:</span> ${c.acquaintance || '-'}</p></div>
+                <div class="print-item"><p><span class="print-label">وضعیت والدین:</span> ${c.parents || '-'}</p></div>
+                <div class="print-item"><p><span class="print-label">سابقه روانی/جسمی:</span> ${c.psychHistory || '-'} / ${c.physicalHistory || '-'}</p></div>
+                <div class="print-item"><p><span class="print-label">اطلاعات همسر:</span> ${c.spouseName || '-'} | سن: ${c.spouseAge || '-'} | شغل: ${c.spouseJob || '-'}</p></div>
+                <div class="print-item"><p><span class="print-label">مشکل اصلی:</span> ${c.mainProblem || '-'}</p></div>
+                <div class="print-item"><p><span class="print-label">تشخیص مشاور:</span> ${c.diagnosis || 'ثبت نشده'}</p></div>
+            `;
+            printDocument(`پرونده مراجع: ${c.name}`, html);
         }
 
         // --- SESSION LOGIC ---
@@ -530,7 +594,7 @@
                 <div class="card list-item">
                     <div style="display:flex; justify-content:space-between;">
                         <h4 style="font-weight:bold;">${client ? client.name : 'نامشخص'}</h4>
-                        <span style="font-size:12px; color:#64748b;">${s.date}</span>
+                        <span style="font-size:12px; color:#64748b;">${toJalali(s.date)}</span>
                     </div>
                     <p>جلسه ${s.num} | مشاور: ${s.counselor || '-'} | وضعیت: ${s.status}</p>
                     <p>هزینه: ${s.fee} | تخفیف: ${s.discount} | پرداختی: ${s.paid} | مانده: ${s.remaining}</p>
@@ -541,7 +605,7 @@
                         ${s.needsPsychiatrist ? '🩺 نیاز به روانپزشک<br>' : ''}
                     </div>
                     <div class="action-row">
-                        <button class="action-btn btn-share" onclick="shareSession('${s.id}')">📤 ارسال به مشاور</button>
+                        <button class="action-btn btn-share" onclick="shareSession('${s.id}')">📄 ارسال (PDF)</button>
                         <button class="action-btn btn-delete" onclick="deleteSession('${s.id}')">🗑️ حذف</button>
                     </div>
                 </div>
@@ -561,8 +625,21 @@
             const s = sessions.find(x => x.id === id);
             if(!s) return;
             const client = clients.find(c => c.id === s.clientId);
-            const text = `📋 *گزارش جلسه*\n\n👤 مراجع: ${client ? client.name : 'نامشخص'}\n📅 تاریخ: ${s.date}\n🔢 شماره جلسه: ${s.num}\n👨‍⚕️ مشاور: ${s.counselor || '-'}\n\n💰 *مالی:*\nهزینه: ${s.fee}\nتخفیف: ${s.discount}\nپرداختی: ${s.paid}\nمانده: ${s.remaining}\n\n📝 *خلاصه جلسه:*\n${s.clinicalNotes || 'بدون یادداشت'}\n\n📌 *برنامه جلسه بعد:*\n${s.nextPlan || '-'}\n\n${s.needsTest ? '🧪 نیاز به تست\n' : ''}${s.needsPsychiatrist ? '🩺 نیاز به روانپزشک\n' : ''}`;
-            shareText(text);
+            
+            let html = `
+                <div class="print-item"><p><span class="print-label">مراجع:</span> ${client ? client.name : 'نامشخص'}</p></div>
+                <div class="print-item"><p><span class="print-label">تاریخ جلسه:</span> ${toJalali(s.date)} | <span class="print-label">شماره جلسه:</span> ${s.num}</p></div>
+                <div class="print-item"><p><span class="print-label">مشاور:</span> ${s.counselor || '-'} | <span class="print-label">وضعیت:</span> ${s.status}</p></div>
+                <div class="print-item">
+                    <p><span class="print-label">هزینه:</span> ${s.fee} | <span class="print-label">تخفیف:</span> ${s.discount} | <span class="print-label">پرداختی:</span> ${s.paid} | <span class="print-label">مانده:</span> ${s.remaining}</p>
+                </div>
+                <div class="print-item"><p><span class="print-label">خلاصه جلسه:</span> ${s.clinicalNotes || 'بدون یادداشت'}</p></div>
+                <div class="print-item"><p><span class="print-label">برنامه جلسه بعد:</span> ${s.nextPlan || '-'}</p></div>
+                <div class="print-item">
+                    <p><span class="print-label">نیازها:</span> ${s.needsTest ? 'تست' : 'بدون تست'} / ${s.needsPsychiatrist ? 'روانپزشک' : 'بدون روانپزشک'}</p>
+                </div>
+            `;
+            printDocument(`گزارش جلسه: ${client ? client.name : 'نامشخص'}`, html);
         }
 
         // --- DAILY NOTES LOGIC ---
@@ -584,7 +661,7 @@
                     <span class="note-date">${n.date}</span>
                     <p style="font-size:13px; line-height:1.6; white-space: pre-wrap;">${n.text}</p>
                     <div class="action-row">
-                        <button class="action-btn btn-share" onclick="shareText('📝 یادداشت روزانه:\\n\\n${n.text.replace(/'/g, "\\'")}')">📤 ارسال به مشاور</button>
+                        <button class="action-btn btn-share" onclick="shareDailyNote('${n.id}')">📄 ارسال (PDF)</button>
                         <button class="action-btn btn-delete" onclick="deleteDailyNote('${n.id}')">🗑️ حذف</button>
                     </div>
                 </div>
@@ -599,23 +676,11 @@
             }
         }
 
-        // --- UNIVERSAL SHARE FUNCTION ---
-        function shareText(text) {
-            if (navigator.share) {
-                navigator.share({ title: 'اطلاعات مشاوره', text: text }).catch((err) => console.log('Error sharing', err));
-            } else {
-                navigator.clipboard.writeText(text).then(() => {
-                    alert('متن کپی شد! می‌توانید آن را در واتس‌اپ یا تلگرام برای مشاور بفرستید.');
-                }).catch(() => {
-                    const textarea = document.createElement('textarea');
-                    textarea.value = text;
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                    alert('متن کپی شد! می‌توانید آن را برای مشاور بفرستید.');
-                });
-            }
+        function shareDailyNote(id) {
+            const n = dailyNotes.find(x => x.id === id);
+            if(!n) return;
+            let html = `<div class="print-item"><p>${n.text.replace(/\n/g, '<br>')}</p></div>`;
+            printDocument('یادداشت روزانه', html);
         }
 
         // Initial Load
