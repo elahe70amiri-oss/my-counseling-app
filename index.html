@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>سیستم مدیریت مرکز مشاوره</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --warning: #ea580c;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --purple: #8b5cf6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tahoma', 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding-bottom: 80px; }
+        
+        header { background: var(--primary); color: white; padding: 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        header h1 { font-size: 18px; font-weight: bold; text-align: center; }
+        
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); display: flex; justify-content: space-around; padding: 10px 0; border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--text-muted); cursor: pointer; flex: 1; }
+        .nav-item.active { color: var(--primary); font-weight: bold; }
+        .nav-item svg { width: 22px; height: 22px; margin-bottom: 4px; }
+        
+        .container { padding: 16px; }
+        .section { display: none; }
+        .section.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid var(--border); }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 12px; margin-bottom: 4px; color: var(--text-muted); font-weight: bold; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: #f8fafc; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--primary); background: white; }
+        
+        .btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 8px; }
+        .btn-success { background: var(--success); }
+        .btn-warning { background: var(--warning); }
+        .btn-danger { background: var(--danger); }
+        .btn-secondary { background: var(--text-muted); }
+        .btn-purple { background: var(--purple); }
+        
+        .action-row { display: flex; gap: 6px; margin-top: 12px; }
+        .action-btn { flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
+        .btn-share { background: #dbeafe; color: #2563eb; }
+        .btn-edit { background: #fef3c7; color: #d97706; }
+        .btn-delete { background: #fee2e2; color: #dc2626; }
+        .btn-view { background: #e0e7ff; color: #4f46e5; }
+        
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 200; padding: 16px; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; width: 100%; max-width: 450px; border-radius: 16px; padding: 20px; max-height: 95vh; overflow-y: auto; }
+        .modal-content h3 { margin-bottom: 16px; text-align: center; color: var(--primary); }
+        
+        .form-section-title { font-size: 14px; font-weight: bold; color: var(--primary); margin: 16px 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        
+        .list-item { border-right: 4px solid var(--primary); padding: 12px; margin-bottom: 8px; background: white; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .list-item h4 { font-size: 15px; margin-bottom: 4px; }
+        .list-item p { font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
+        
+        .note-card { border-right: 4px solid var(--warning); }
+        .note-date { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 6px; }
+        
+        .schedule-item { border-right: 4px solid var(--purple); background: #f5f3ff; }
+        .schedule-time { font-weight: bold; color: var(--purple); font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>سیستم مدیریت مرکز مشاوره</h1>
+    </header>
+
+    <div class="container">
+        
+        <!-- SECTION 1: CLIENTS -->
+        <div id="sec-clients" class="section active">
+            <button class="btn btn-success" onclick="openModal('clientModal')" style="margin-bottom: 16px;">➕ افزودن پرونده جدید</button>
+            <div id="clients-list"></div>
+        </div>
+
+        <!-- SECTION 2: DAILY SCHEDULE -->
+        <div id="sec-schedule" class="section">
+            <div class="card" style="background: #f5f3ff; border-color: #ddd6fe;">
+                <h3 style="font-size: 15px; margin-bottom: 8px; color: var(--purple);">📅 ثبت نوبت برای روز مشخص</h3>
+                <div class="grid-2">
+                    <div class="form-group"><label>تاریخ</label><input type="date" id="app-date"></div>
+                    <div class="form-group"><label>ساعت</label><input type="time" id="app-time"></div>
+                </div>
+                <div class="form-group"><label>نام مراجع</label><input type="text" id="app-client" placeholder="مثلاً: علی رضایی"></div>
+                <div class="form-group"><label>موضوع جلسه / نکته برای مشاور</label><textarea id="app-note" rows="2" placeholder="مثلاً: تمرکز روی اضطراب جدایی"></textarea></div>
+                <button class="btn btn-purple" onclick="addAppointment()">ثبت نوبت</button>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin: 16px 0 8px;">
+                <h3 style="font-size: 14px; color: var(--text-muted);">نوبت‌های ثبت‌شده:</h3>
+                <button class="btn" style="width:auto; padding:6px 12px; font-size:12px; margin:0;" onclick="shareDailySchedule()">📤 ارسال کل برنامه به مشاور</button>
+            </div>
+            <div id="schedule-list"></div>
+        </div>
+
+        <!-- SECTION 3: SESSIONS -->
+        <div id="sec-sessions" class="section">
+            <div id="sessions-list"></div>
+        </div>
+
+        <!-- SECTION 4: DAILY NOTES -->
+        <div id="sec-daily-notes" class="section">
+            <div class="card">
+                <h3 style="font-size: 15px; margin-bottom: 8px; color: var(--warning);">📝 یادداشت روزانه من</h3>
+                <textarea id="daily-note-input" placeholder="امروز چه کارهایی انجام دادید؟..." rows="3" style="margin-bottom: 8px;"></textarea>
+                <button class="btn btn-warning" onclick="addDailyNote()">ذخیره یادداشت امروز</button>
+            </div>
+            <div id="daily-notes-list"></div>
+        </div>
+
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('clients')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+            <span>مراجعین</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('schedule')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            <span>نوبت‌ها</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('sessions')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+            <span>جلسات</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('daily-notes')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+            <span>روزانه</span>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD/EDIT CLIENT (Full Form) -->
+    <div id="clientModal" class="modal">
+        <div class="modal-content">
+            <h3 id="clientModalTitle">ثبت پرونده جدید</h3>
+            <form id="clientForm">
+                <input type="hidden" id="edit-id">
+                
+                <div class="form-section-title">۱. اطلاعات پرونده</div>
+                <div class="grid-2">
+                    <div class="form-group"><label>شماره پرونده</label><input type="text" id="c-fileNum"></div>
+                    <div class="form-group"><label>تاریخ اولین مراجعه</label><input type="date" id="c-firstVisit"></div>
+                </div>
+                <div class="form-group"><label>نام معرف / ارجاع دهنده</label><input type="text" id="c-referral"></div>
+
+                <div class="form-section-title">۲. مشخصات فردی</div>
+                <div class="form-group"><label>نام و نام خانوادگی</label><input type="text" id="c-name" required></div>
+                <div class="grid-2">
+                    <div class="form-group"><label>سن</label><input type="number" id="c-age"></div>
+                    <div class="form-group"><label>شغل</label><input type="text" id="c-job"></div>
+                </div>
+                <div class="form-group"><label>وضعیت تحصیلی / مدرک</label><input type="text" id="c-education"></div>
+                <div class="grid-2">
+                    <div class="form-group"><label>وضعیت تاهل</label>
+                        <select id="c-marital">
+                            <option value="مجرد">مجرد</option>
+                            <option value="متاهل">متاهل</option>
+                            <option value="مطلقه">مطلقه</option>
+                            <option value="متارکه">متارکه</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>مدت تاهل / رابطه</label><input type="text" id="c-marriageDuration"></div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group"><label>تعداد فرزندان</label><input type="number" id="c-children"></div>
+                    <div class="form-group"><label>فرزند چندم خانواده</label><input type="number" id="c-birthOrder"></div>
+                </div>
+                <div class="form-group"><label>نحوه آشنایی (دوستی / سنتی / معرفی)</label><input type="text" id="c-acquaintance"></div>
+
+                <div class="form-section-title">۳. اطلاعات خانواده و پزشکی</div>
+                <div class="form-group"><label>وضعیت پدر و مادر</label><textarea id="c-parents" rows="2"></textarea></div>
+                <div class="form-group"><label>سابقه اعتیاد / سیگار</label><input type="text" id="c-addiction"></div>
+                <div class="form-group"><label>سابقه بیماری روانی / اعصاب</label><textarea id="c-psychHistory" rows="2"></textarea></div>
+                <div class="form-group"><label>سابقه بیماری جسمی جدی / حساسیت دارویی</label><textarea id="c-physicalHistory" rows="2"></textarea></div>
+
+                <div class="form-section-title">۴. اطلاعات همسر (در صورت تاهل)</div>
+                <div class="form-group"><label>نام و نام خانوادگی همسر</label><input type="text" id="c-spouseName"></div>
+                <div class="grid-2">
+                    <div class="form-group"><label>سن همسر</label><input type="number" id="c-spouseAge"></div>
+                    <div class="form-group"><label>شغل همسر</label><input type="text" id="c-spouseJob"></div>
+                </div>
+                <div class="form-group"><label>سابقه اعتیاد / سیگار همسر</label><input type="text" id="c-spouseAddiction"></div>
+
+                <div class="form-section-title">۵. اطلاعات روانشناسی</div>
+                <div class="form-group"><label>مشکل اصلی و نگرانی</label><textarea id="c-mainProblem" rows="2" required></textarea></div>
+                <div class="form-group"><label>مدت زمان درگیری با مشکل</label><input type="text" id="c-problemDuration"></div>
+                <div class="form-group"><label>سابقه رفتار آسیب‌زننده به خود</label><textarea id="c-selfHarm" rows="2"></textarea></div>
+                <div class="form-group"><label>توضیحات و تشخیص مشاور (اختصاصی)</label><textarea id="c-diagnosis" rows="2"></textarea></div>
+
+                <button type="submit" class="btn btn-success">💾 ذخیره پرونده</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('clientModal')">انصراف</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD/EDIT SESSION -->
+    <div id="sessionModal" class="modal">
+        <div class="modal-content">
+            <h3>ثبت جلسه جدید</h3>
+            <input type="hidden" id="s-client-id">
+            <input type="hidden" id="s-edit-id">
+            
+            <div class="grid-2">
+                <div class="form-group"><label>تاریخ جلسه</label><input type="date" id="s-date" required></div>
+                <div class="form-group"><label>شماره جلسه</label><input type="number" id="s-num"></div>
+            </div>
+            <div class="form-group"><label>نام مشاور</label><input type="text" id="s-counselor"></div>
+            <div class="grid-3">
+                <div class="form-group"><label>وضعیت</label>
+                    <select id="s-status">
+                        <option value="حاضر">حاضر</option>
+                        <option value="غایب">غایب</option>
+                        <option value="کنسل">کنسل</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>هزینه کل</label><input type="number" id="s-fee"></div>
+                <div class="form-group"><label>تخفیف</label><input type="number" id="s-discount"></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>مبلغ پرداختی</label><input type="number" id="s-paid"></div>
+                <div class="form-group"><label>مانده</label><input type="number" id="s-remaining" readonly placeholder="خودکار"></div>
+            </div>
+
+            <div class="form-section-title">یادداشت‌های بالینی</div>
+            <div class="form-group"><label>خلاصه جلسه و تکالیف</label><textarea id="s-clinicalNotes" rows="3"></textarea></div>
+            <div class="form-group"><label>برنامه جلسه بعد</label><textarea id="s-nextPlan" rows="2"></textarea></div>
+            
+            <div class="form-section-title">نیازهای ویژه</div>
+            <div class="grid-2">
+                <div class="form-group"><label><input type="checkbox" id="s-needsTest"> نیاز به تست</label></div>
+                <div class="form-group"><label><input type="checkbox" id="s-needsPsychiatrist"> نیاز به روانپزشک</label></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>تاریخ تست</label><input type="date" id="s-testDate"></div>
+                <div class="form-group"><label>محل ذخیره تست</label><input type="text" id="s-testLocation"></div>
+            </div>
+
+            <button type="button" class="btn btn-success" onclick="saveSession()">💾 ذخیره جلسه</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('sessionModal')">انصراف</button>
+        </div>
+    </div>
+
+    <script>
+        // Data Management
+        let clients = JSON.parse(localStorage.getItem('crm_clients')) || [];
+        let sessions = JSON.parse(localStorage.getItem('crm_sessions')) || [];
+        let dailyNotes = JSON.parse(localStorage.getItem('crm_daily_notes')) || [];
+        let appointments = JSON.parse(localStorage.getItem('crm_appointments')) || [];
+
+        function saveData() {
+            localStorage.setItem('crm_clients', JSON.stringify(clients));
+            localStorage.setItem('crm_sessions', JSON.stringify(sessions));
+            localStorage.setItem('crm_daily_notes', JSON.stringify(dailyNotes));
+            localStorage.setItem('crm_appointments', JSON.stringify(appointments));
+        }
+
+        // Navigation
+        function switchTab(tab) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('sec-' + tab).classList.add('active');
+            event.currentTarget.classList.add('active');
+            if(tab === 'clients') renderClients();
+            if(tab === 'schedule') renderSchedule();
+            if(tab === 'sessions') renderSessions();
+            if(tab === 'daily-notes') renderDailyNotes();
+        }
+
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        // --- SCHEDULE LOGIC ---
+        function addAppointment() {
+            const date = document.getElementById('app-date').value;
+            const time = document.getElementById('app-time').value;
+            const client = document.getElementById('app-client').value;
+            const note = document.getElementById('app-note').value;
+
+            if(!date || !time || !client) return alert('لطفاً تاریخ، ساعت و نام مراجع را وارد کنید.');
+
+            const app = { id: Date.now().toString(), date, time, client, note };
+            appointments.push(app);
+            saveData();
+            
+            document.getElementById('app-client').value = '';
+            document.getElementById('app-note').value = '';
+            
+            renderSchedule();
+            alert('نوبت با موفقیت ثبت شد.');
+        }
+
+        function renderSchedule() {
+            const list = document.getElementById('schedule-list');
+            if (appointments.length === 0) { list.innerHTML = '<p style="text-align:center; color:#64748b; font-size:13px;">هنوز نوبتی ثبت نشده است.</p>'; return; }
+
+            const sorted = [...appointments].sort((a,b) => {
+                if(a.date !== b.date) return a.date.localeCompare(b.date);
+                return a.time.localeCompare(b.time);
+            });
+
+            list.innerHTML = sorted.map(a => `
+                <div class="card list-item schedule-item">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span class="schedule-time">⏰ ${a.time}</span>
+                        <span style="font-size:12px; color:#64748b;">${a.date}</span>
+                    </div>
+                    <h4 style="margin-top:4px;">👤 ${a.client}</h4>
+                    <p style="font-size:12px; margin-top:4px; color:#4c1d95;">📝 ${a.note || 'بدون توضیح'}</p>
+                    <div class="action-row">
+                        <button class="action-btn btn-delete" onclick="deleteAppointment('${a.id}')">🗑️ حذف نوبت</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteAppointment(id) {
+            if(confirm('حذف این نوبت؟')) {
+                appointments = appointments.filter(a => a.id !== id);
+                saveData();
+                renderSchedule();
+            }
+        }
+
+        function shareDailySchedule() {
+            if (appointments.length === 0) return alert('هیچ نوبتی برای ارسال وجود ندارد.');
+            
+            let text = `📅 *برنامه نوبت‌های مراجعین*\n\n`;
+            const grouped = {};
+            appointments.forEach(a => {
+                if(!grouped[a.date]) grouped[a.date] = [];
+                grouped[a.date].push(a);
+            });
+
+            Object.keys(grouped).sort().forEach(date => {
+                text += `🔹 *تاریخ: ${date}*\n`;
+                grouped[date].sort((a,b) => a.time.localeCompare(b.time)).forEach(a => {
+                    text += `   ⏰ ${a.time} - ${a.client}\n`;
+                    text += `   📝 نکته: ${a.note || '-'}\n`;
+                });
+                text += `\n`;
+            });
+
+            text += `(ارسال شده از پنل مدیریت مشاوره)`;
+            shareText(text);
+        }
+
+        // --- CLIENTS LOGIC ---
+        document.getElementById('clientForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const clientData = {
+                id: id || Date.now().toString(),
+                fileNum: document.getElementById('c-fileNum').value,
+                firstVisit: document.getElementById('c-firstVisit').value,
+                referral: document.getElementById('c-referral').value,
+                name: document.getElementById('c-name').value,
+                age: document.getElementById('c-age').value,
+                job: document.getElementById('c-job').value,
+                education: document.getElementById('c-education').value,
+                marital: document.getElementById('c-marital').value,
+                marriageDuration: document.getElementById('c-marriageDuration').value,
+                children: document.getElementById('c-children').value,
+                birthOrder: document.getElementById('c-birthOrder').value,
+                acquaintance: document.getElementById('c-acquaintance').value,
+                parents: document.getElementById('c-parents').value,
+                addiction: document.getElementById('c-addiction').value,
+                psychHistory: document.getElementById('c-psychHistory').value,
+                physicalHistory: document.getElementById('c-physicalHistory').value,
+                spouseName: document.getElementById('c-spouseName').value,
+                spouseAge: document.getElementById('c-spouseAge').value,
+                spouseJob: document.getElementById('c-spouseJob').value,
+                spouseAddiction: document.getElementById('c-spouseAddiction').value,
+                mainProblem: document.getElementById('c-mainProblem').value,
+                problemDuration: document.getElementById('c-problemDuration').value,
+                selfHarm: document.getElementById('c-selfHarm').value,
+                diagnosis: document.getElementById('c-diagnosis').value
+            };
+
+            if (id) { clients = clients.map(c => c.id === id ? clientData : c); }
+            else { clients.push(clientData); }
+            saveData();
+            this.reset();
+            document.getElementById('edit-id').value = '';
+            closeModal('clientModal');
+            renderClients();
+        });
+
+        function renderClients() {
+            const list = document.getElementById('clients-list');
+            if (clients.length === 0) { list.innerHTML = '<div class="card" style="text-align:center; color:#64748b;">هنوز پرونده‌ای ثبت نشده است.</div>'; return; }
+            
+            list.innerHTML = clients.map(c => `
+                <div class="card list-item">
+                    <h4 style="font-weight:bold;">${c.name} <span style="font-size:11px; color:#64748b; font-weight:normal;">(پرونده: ${c.fileNum || '-'})</span></h4>
+                    <p>سن: ${c.age || '-'} | وضعیت: ${c.marital}</p>
+                    <p>مشکل: ${c.mainProblem ? c.mainProblem.substring(0, 50) + '...' : '-'}</p>
+                    
+                    <div class="action-row">
+                        <button class="action-btn btn-view" onclick="viewClient('${c.id}')">👁️ مشاهده</button>
+                        <button class="action-btn btn-edit" onclick="editClient('${c.id}')">✏️ ویرایش</button>
+                        <button class="action-btn btn-share" onclick="shareClient('${c.id}')">📤 ارسال به مشاور</button>
+                        <button class="action-btn btn-delete" onclick="deleteClient('${c.id}')">🗑️ حذف</button>
+                    </div>
+                    <button class="btn btn-success" style="margin-top:8px; font-size:12px; padding:8px;" onclick="openSessionModal('${c.id}')">+ ثبت جلسه جدید</button>
+                </div>
+            `).join('');
+        }
+
+        function viewClient(id) {
+            const c = clients.find(x => x.id === id);
+            if(!c) return;
+            alert(`📋 پرونده: ${c.name}\n\nشماره پرونده: ${c.fileNum || '-'}\nتاریخ اولین مراجعه: ${c.firstVisit || '-'}\nنام معرف: ${c.referral || '-'}\n\nسن: ${c.age || '-'}\nشغل: ${c.job || '-'}\nتحصیلات: ${c.education || '-'}\nوضعیت تاهل: ${c.marital}\nمدت تاهل: ${c.marriageDuration || '-'}\nفرزندان: ${c.children || '-'}\nترتیب تولد: ${c.birthOrder || '-'}\nنحوه آشنایی: ${c.acquaintance || '-'}\n\nوضعیت والدین: ${c.parents || '-'}\nسابقه اعتیاد/سیگار: ${c.addiction || '-'}\nسابقه روانی: ${c.psychHistory || '-'}\nسابقه جسمی: ${c.physicalHistory || '-'}\n\nاطلاعات همسر:\nنام: ${c.spouseName || '-'}\nسن: ${c.spouseAge || '-'}\nشغل: ${c.spouseJob || '-'}\nاعتیاد: ${c.spouseAddiction || '-'}\n\nمشکل اصلی: ${c.mainProblem || '-'}\nمدت مشکل: ${c.problemDuration || '-'}\nرفتار آسیب‌زننده: ${c.selfHarm || '-'}\nتشخیص مشاور: ${c.diagnosis || '-'}`);
+        }
+
+        function editClient(id) {
+            const c = clients.find(x => x.id === id);
+            if(!c) return;
+            document.getElementById('edit-id').value = c.id;
+            document.getElementById('c-fileNum').value = c.fileNum;
+            document.getElementById('c-firstVisit').value = c.firstVisit;
+            document.getElementById('c-referral').value = c.referral;
+            document.getElementById('c-name').value = c.name;
+            document.getElementById('c-age').value = c.age;
+            document.getElementById('c-job').value = c.job;
+            document.getElementById('c-education').value = c.education;
+            document.getElementById('c-marital').value = c.marital;
+            document.getElementById('c-marriageDuration').value = c.marriageDuration;
+            document.getElementById('c-children').value = c.children;
+            document.getElementById('c-birthOrder').value = c.birthOrder;
+            document.getElementById('c-acquaintance').value = c.acquaintance;
+            document.getElementById('c-parents').value = c.parents;
+            document.getElementById('c-addiction').value = c.addiction;
+            document.getElementById('c-psychHistory').value = c.psychHistory;
+            document.getElementById('c-physicalHistory').value = c.physicalHistory;
+            document.getElementById('c-spouseName').value = c.spouseName;
+            document.getElementById('c-spouseAge').value = c.spouseAge;
+            document.getElementById('c-spouseJob').value = c.spouseJob;
+            document.getElementById('c-spouseAddiction').value = c.spouseAddiction;
+            document.getElementById('c-mainProblem').value = c.mainProblem;
+            document.getElementById('c-problemDuration').value = c.problemDuration;
+            document.getElementById('c-selfHarm').value = c.selfHarm;
+            document.getElementById('c-diagnosis').value = c.diagnosis;
+            openModal('clientModal');
+        }
+
+        function deleteClient(id) {
+            if(confirm('آیا از حذف این پرونده و تمام جلسات مرتبط مطمئن هستید؟')) {
+                clients = clients.filter(c => c.id !== id);
+                sessions = sessions.filter(s => s.clientId !== id);
+                saveData();
+                renderClients();
+            }
+        }
+
+        function shareClient(id) {
+            const c = clients.find(x => x.id === id);
+            if(!c) return;
+            const text = `📋 *پرونده مراجع: ${c.name}*\n\n🔹 شماره پرونده: ${c.fileNum || '-'}\n🔹 سن: ${c.age || '-'}\n🔹 شغل: ${c.job || '-'}\n🔹 وضعیت تاهل: ${c.marital}\n🔹 نحوه آشنایی: ${c.acquaintance || '-'}\n\n📝 *مشکل اصلی:* ${c.mainProblem || '-'}\n📝 *سابقه روانی:* ${c.psychHistory || '-'}\n📝 *سابقه جسمی:* ${c.physicalHistory || '-'}\n📝 *وضعیت والدین:* ${c.parents || '-'}\n\n🩺 *تشخیص مشاور:* ${c.diagnosis || 'ثبت نشده'}`;
+            shareText(text);
+        }
+
+        // --- SESSION LOGIC ---
+        function openSessionModal(clientId) {
+            document.getElementById('s-client-id').value = clientId;
+            document.getElementById('s-date').valueAsDate = new Date();
+            document.getElementById('s-edit-id').value = '';
+            openModal('sessionModal');
+        }
+
+        function saveSession() {
+            const fee = Number(document.getElementById('s-fee').value) || 0;
+            const discount = Number(document.getElementById('s-discount').value) || 0;
+            const paid = Number(document.getElementById('s-paid').value) || 0;
+            const remaining = fee - discount - paid;
+
+            const sessionData = {
+                id: document.getElementById('s-edit-id').value || Date.now().toString(),
+                clientId: document.getElementById('s-client-id').value,
+                date: document.getElementById('s-date').value,
+                num: document.getElementById('s-num').value,
+                counselor: document.getElementById('s-counselor').value,
+                status: document.getElementById('s-status').value,
+                fee: fee,
+                discount: discount,
+                paid: paid,
+                remaining: remaining,
+                clinicalNotes: document.getElementById('s-clinicalNotes').value,
+                nextPlan: document.getElementById('s-nextPlan').value,
+                needsTest: document.getElementById('s-needsTest').checked,
+                needsPsychiatrist: document.getElementById('s-needsPsychiatrist').checked,
+                testDate: document.getElementById('s-testDate').value,
+                testLocation: document.getElementById('s-testLocation').value
+            };
+
+            const existingIndex = sessions.findIndex(s => s.id === sessionData.id);
+            if (existingIndex > -1) { sessions[existingIndex] = sessionData; }
+            else { sessions.push(sessionData); }
+            
+            saveData();
+            closeModal('sessionModal');
+            alert('جلسه با موفقیت ثبت شد.');
+            document.getElementById('sessionModal').querySelector('form').reset();
+        }
+
+        function renderSessions() {
+            const list = document.getElementById('sessions-list');
+            if (sessions.length === 0) { list.innerHTML = '<div class="card" style="text-align:center; color:#64748b;">هنوز جلسه‌ای ثبت نشده است.</div>'; return; }
+            
+            const sorted = [...sessions].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            list.innerHTML = sorted.map(s => {
+                const client = clients.find(c => c.id === s.clientId);
+                return `
+                <div class="card list-item">
+                    <div style="display:flex; justify-content:space-between;">
+                        <h4 style="font-weight:bold;">${client ? client.name : 'نامشخص'}</h4>
+                        <span style="font-size:12px; color:#64748b;">${s.date}</span>
+                    </div>
+                    <p>جلسه ${s.num} | مشاور: ${s.counselor || '-'} | وضعیت: ${s.status}</p>
+                    <p>هزینه: ${s.fee} | تخفیف: ${s.discount} | پرداختی: ${s.paid} | مانده: ${s.remaining}</p>
+                    <div style="background:#f8fafc; padding:8px; border-radius:6px; margin-top:8px; font-size:12px;">
+                        <strong>خلاصه:</strong> ${s.clinicalNotes || 'بدون یادداشت'}<br>
+                        <strong>برنامه بعد:</strong> ${s.nextPlan || '-'}<br>
+                        ${s.needsTest ? '🧪 نیاز به تست<br>' : ''}
+                        ${s.needsPsychiatrist ? '🩺 نیاز به روانپزشک<br>' : ''}
+                    </div>
+                    <div class="action-row">
+                        <button class="action-btn btn-share" onclick="shareSession('${s.id}')">📤 ارسال به مشاور</button>
+                        <button class="action-btn btn-delete" onclick="deleteSession('${s.id}')">🗑️ حذف</button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function deleteSession(id) {
+            if(confirm('حذف این جلسه؟')) {
+                sessions = sessions.filter(s => s.id !== id);
+                saveData();
+                renderSessions();
+            }
+        }
+
+        function shareSession(id) {
+            const s = sessions.find(x => x.id === id);
+            if(!s) return;
+            const client = clients.find(c => c.id === s.clientId);
+            const text = `📋 *گزارش جلسه*\n\n👤 مراجع: ${client ? client.name : 'نامشخص'}\n📅 تاریخ: ${s.date}\n🔢 شماره جلسه: ${s.num}\n👨‍⚕️ مشاور: ${s.counselor || '-'}\n\n💰 *مالی:*\nهزینه: ${s.fee}\nتخفیف: ${s.discount}\nپرداختی: ${s.paid}\nمانده: ${s.remaining}\n\n📝 *خلاصه جلسه:*\n${s.clinicalNotes || 'بدون یادداشت'}\n\n📌 *برنامه جلسه بعد:*\n${s.nextPlan || '-'}\n\n${s.needsTest ? '🧪 نیاز به تست\n' : ''}${s.needsPsychiatrist ? '🩺 نیاز به روانپزشک\n' : ''}`;
+            shareText(text);
+        }
+
+        // --- DAILY NOTES LOGIC ---
+        function addDailyNote() {
+            const text = document.getElementById('daily-note-input').value;
+            if(!text.trim()) return alert('لطفاً متن یادداشت را وارد کنید.');
+            const note = { id: Date.now().toString(), date: new Date().toLocaleDateString('fa-IR') + ' - ' + new Date().toLocaleTimeString('fa-IR', {hour: '2-digit', minute:'2-digit'}), text: text };
+            dailyNotes.unshift(note);
+            saveData();
+            document.getElementById('daily-note-input').value = '';
+            renderDailyNotes();
+        }
+
+        function renderDailyNotes() {
+            const list = document.getElementById('daily-notes-list');
+            if (dailyNotes.length === 0) { list.innerHTML = '<p style="text-align:center; color:#64748b; font-size:13px;">هنوز یادداشتی ثبت نشده است.</p>'; return; }
+            list.innerHTML = dailyNotes.map(n => `
+                <div class="card note-card">
+                    <span class="note-date">${n.date}</span>
+                    <p style="font-size:13px; line-height:1.6; white-space: pre-wrap;">${n.text}</p>
+                    <div class="action-row">
+                        <button class="action-btn btn-share" onclick="shareText('📝 یادداشت روزانه:\\n\\n${n.text.replace(/'/g, "\\'")}')">📤 ارسال به مشاور</button>
+                        <button class="action-btn btn-delete" onclick="deleteDailyNote('${n.id}')">🗑️ حذف</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteDailyNote(id) {
+            if(confirm('حذف این یادداشت؟')) {
+                dailyNotes = dailyNotes.filter(n => n.id !== id);
+                saveData();
+                renderDailyNotes();
+            }
+        }
+
+        // --- UNIVERSAL SHARE FUNCTION ---
+        function shareText(text) {
+            if (navigator.share) {
+                navigator.share({ title: 'اطلاعات مشاوره', text: text }).catch((err) => console.log('Error sharing', err));
+            } else {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('متن کپی شد! می‌توانید آن را در واتس‌اپ یا تلگرام برای مشاور بفرستید.');
+                }).catch(() => {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    alert('متن کپی شد! می‌توانید آن را برای مشاور بفرستید.');
+                });
+            }
+        }
+
+        // Initial Load
+        renderClients();
+    </script>
+</body>
+</html>
